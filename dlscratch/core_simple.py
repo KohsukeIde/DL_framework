@@ -1,5 +1,7 @@
-import weakref
 import numpy as np
+from abc import ABC, abstractmethod
+import heapq
+import weakref
 import contextlib
 
 
@@ -76,21 +78,19 @@ class Variable:
     def backward(self, retain_grad=False):
         if self.grad is None:
             self.grad = np.ones_like(self.data)
-
         funcs = []
         seen_set = set()
 
         def add_func(f):
             if f not in seen_set:
-                funcs.append(f)
+                heapq.heappush(funcs, (-1 * f.generation, f))
                 seen_set.add(f)
-                funcs.sort(key=lambda x: x.generation)
 
         add_func(self.creator)
 
         while funcs:
-            f = funcs.pop()
-            gys = [output().grad for output in f.outputs]  # output is weakref
+            _, f = heapq.heappop(funcs)
+            gys = [output().grad for output in f.outputs] #output is weakref
             gxs = f.backward(*gys)
             if not isinstance(gxs, tuple):
                 gxs = (gxs,)
@@ -103,7 +103,6 @@ class Variable:
 
                 if x.creator is not None:
                     add_func(x.creator)
-
             if not retain_grad:
                 for y in f.outputs:
                     y().grad = None  # y is weakref
@@ -121,10 +120,9 @@ def as_array(x):
     return x
 
 
-class Function:
+class Function(ABC):
     def __call__(self, *inputs):
         inputs = [as_variable(x) for x in inputs]
-
         xs = [x.data for x in inputs]
         ys = self.forward(*xs)
         if not isinstance(ys, tuple):
@@ -137,12 +135,16 @@ class Function:
                 output.set_creator(self)
             self.inputs = inputs
             self.outputs = [weakref.ref(output) for output in outputs]
+            return outputs if len(outputs) > 1 else outputs[0]
+    
+    def __lt__(self, other):
+        return self.generation < other.generation
 
-        return outputs if len(outputs) > 1 else outputs[0]
-
+    @abstractmethod
     def forward(self, xs):
         raise NotImplementedError()
-
+    
+    @abstractmethod
     def backward(self, gys):
         raise NotImplementedError()
 
