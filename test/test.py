@@ -20,7 +20,6 @@ for i in range(iters):
     y.backward(create_graph=True)
     
     gx = x.grad
-    embed()
     x.cleargrad()
     gx.backward()
     

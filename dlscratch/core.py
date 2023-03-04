@@ -4,7 +4,9 @@ import heapq
 import weakref
 import contextlib
 
-
+# =============================================================================
+# Config
+# =============================================================================
 class Config:
     enable_backprop = True
 
@@ -23,9 +25,12 @@ def no_grad():
     return using_config('enable_backprop', False)
 
 
+# =============================================================================
+# Variable / Function
+# =============================================================================
 class Variable:
     __array_priority__ = 200
-    
+
     def __init__(self, data, name=None):
         if data is not None:
             if not isinstance(data, np.ndarray):
@@ -36,26 +41,26 @@ class Variable:
         self.grad = None
         self.creator = None
         self.generation = 0
-    
+
     @property
     def shape(self):
         return self.data.shape
-    
+
     @property
     def ndim(self):
         return self.data.ndim
-    
+
     @property
     def size(self):
         return self.data.size
-    
+
     @property
     def dtype(self):
         return self.data.dtype
-    
+
     def __len__(self):
         return len(self.data)
-    
+
     def __repr__(self):
         if self.data is None:
             return 'variable(None)'
@@ -66,12 +71,12 @@ class Variable:
         self.creator = func
         self.generation = func.generation + 1
 
-    def cleargrad(self): 
+    def cleargrad(self):
         self.grad = None
 
-    def backward(self, retain_grad=False):
+    def backward(self, retain_grad=False, create_graph=False):
         if self.grad is None:
-            self.grad = np.ones_like(self.data)
+            self.grad = Variable(np.ones_like(self.data))
         funcs = []
         seen_set = set()
 
@@ -84,27 +89,32 @@ class Variable:
 
         while funcs:
             _, f = heapq.heappop(funcs)
-            gys = [output().grad for output in f.outputs]
-            gxs = f.backward(*gys)
-            if not isinstance(gxs, tuple):
-                gxs = (gxs,)
+            gys = [output().grad for output in f.outputs] #output is weakref
+            
+            with using_config('enable_backprop', create_graph):
+                gxs = f.backward(*gys)
+                if not isinstance(gxs, tuple):
+                    gxs = (gxs,)
 
-            for x, gx in zip(f.inputs, gxs):
-                if x.grad is None:
-                    x.grad = gx
-                else:
-                    x.grad = x.grad + gx
+                for x, gx in zip(f.inputs, gxs):
+                    if x.grad is None:
+                        x.grad = gx
+                    else:
+                        x.grad = x.grad + gx
 
-                if x.creator is not None:
-                    add_func(x.creator)
+                    if x.creator is not None:
+                        add_func(x.creator)
+                        
             if not retain_grad:
                 for y in f.outputs:
-                    y().grad = None
-                    
+                    y().grad = None  # y is weakref
+
+
 def as_variable(obj):
     if isinstance(obj, Variable):
         return obj
     return Variable(obj)
+
 
 def as_array(x):
     if np.isscalar(x):
@@ -141,21 +151,9 @@ class Function(ABC):
         raise NotImplementedError()
 
 
-class Square(Function):
-    def forward(self, x):
-        y = x ** 2
-        return y
-
-    def backward(self, gy):
-        x = self.inputs[0].data
-        gx = 2 * x * gy
-        return gx
-
-
-def square(x):
-    return Square()(x)
-
-
+# =============================================================================
+# Operation overloading
+# =============================================================================
 class Add(Function):
     def forward(self, x0, x1):
         y = x0 + x1
@@ -166,7 +164,9 @@ class Add(Function):
 
 
 def add(x0, x1):
+    x1 = as_array(x1)
     return Add()(x0, x1)
+
 
 class Mul(Function):
     def forward(self, x0, x1):
@@ -174,11 +174,12 @@ class Mul(Function):
         return y
 
     def backward(self, gy):
-        x0, x1 = self.inputs[0].data, self.inputs[1].data
+        x0, x1 = self.inputs
         return gy * x1, gy * x0
 
 
 def mul(x0, x1):
+    x1 = as_array(x1)
     return Mul()(x0, x1)
 
 
@@ -210,7 +211,7 @@ def sub(x0, x1):
 
 def rsub(x0, x1):
     x1 = as_array(x1)
-    return sub(x1, x0)
+    return Sub()(x1, x0)
 
 
 class Div(Function):
@@ -232,7 +233,7 @@ def div(x0, x1):
 
 def rdiv(x0, x1):
     x1 = as_array(x1)
-    return div(x1, x0)
+    return Div()(x1, x0)
 
 
 class Pow(Function):
@@ -255,29 +256,14 @@ def pow(x, c):
     return Pow(c)(x)
 
 
-Variable.__add__ = add
-Variable.__radd__ = add
-Variable.__mul__ = mul
-Variable.__rmul__ = mul
-Variable.__neg__ = neg
-Variable.__sub__ = sub
-Variable.__rsub__ = rsub
-Variable.__truediv__ = div
-Variable.__rtruediv__ = rdiv
-Variable.__pow__ = pow
-
-x = Variable(np.array(2.0))
-y = -x
-print(y)  # variable(-2.0)
-
-y1 = 2.0 - x
-y2 = x - 1.0
-print(y1)  # variable(0.0)
-print(y2)  # variable(1.0)
-
-y = 3.0 / x
-print(y)  # variable(1.5)
-
-y = x ** 3
-y.backward()
-print(y)  # variable(8.0)
+def setup_variable():
+    Variable.__add__ = add
+    Variable.__radd__ = add
+    Variable.__mul__ = mul
+    Variable.__rmul__ = mul
+    Variable.__neg__ = neg
+    Variable.__sub__ = sub
+    Variable.__rsub__ = rsub
+    Variable.__truediv__ = div
+    Variable.__rtruediv__ = rdiv
+    Variable.__pow__ = pow
