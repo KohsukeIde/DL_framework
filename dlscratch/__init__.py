@@ -1,4 +1,5 @@
-is_simple_core = True
+is_simple_core = False
+
 
 if is_simple_core:
     from dlscratch.core_simple import Variable
@@ -8,5 +9,14 @@ if is_simple_core:
     from dlscratch.core_simple import as_array
     from dlscratch.core_simple import as_variable
     from dlscratch.core_simple import setup_variable
-
+    
+else:
+    from dlscratch.core import Variable
+    from dlscratch.core import Function
+    from dlscratch.core import using_config
+    from dlscratch.core import no_grad
+    from dlscratch.core import as_array
+    from dlscratch.core import as_variable
+    from dlscratch.core import setup_variable
+    
 setup_variable()
