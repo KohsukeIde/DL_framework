@@ -1,9 +1,10 @@
+
+
 if '__file__' in globals():
     import os, sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import numpy as np
 from dlscratch import Variable
-from IPython import embed
 
 def f(x):
     y = x ** 4 - 2 * x ** 2
@@ -16,13 +17,14 @@ for i in range(iters):
     print(i, x)
 
     y = f(x)
+    print('function y', y)
     x.cleargrad()
     y.backward(create_graph=True)
+    print('function y backward', y.backward)
     
     gx = x.grad
     x.cleargrad()
     gx.backward()
-    
     gx2 = x.grad
 
     x.data -= gx.data / gx2.data

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import heapq
 import weakref
 import contextlib
+from IPython import embed
 
 # =============================================================================
 # Config
@@ -77,6 +78,7 @@ class Variable:
     def backward(self, retain_grad=False, create_graph=False):
         if self.grad is None:
             self.grad = Variable(np.ones_like(self.data))
+
         funcs = []
         seen_set = set()
 
@@ -170,6 +172,7 @@ def add(x0, x1):
 
 class Mul(Function):
     def forward(self, x0, x1):
+        print(x0, x1)
         y = x0 * x1
         return y
 
