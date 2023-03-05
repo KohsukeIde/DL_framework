@@ -139,7 +139,8 @@ class Function(ABC):
                 output.set_creator(self)
             self.inputs = inputs
             self.outputs = [weakref.ref(output) for output in outputs]
-            return outputs if len(outputs) > 1 else outputs[0]
+            
+        return outputs if len(outputs) > 1 else outputs[0]
     
     def __lt__(self, other):
         return self.generation < other.generation
@@ -172,7 +173,6 @@ def add(x0, x1):
 
 class Mul(Function):
     def forward(self, x0, x1):
-        print(x0, x1)
         y = x0 * x1
         return y
 
@@ -223,7 +223,7 @@ class Div(Function):
         return y
 
     def backward(self, gy):
-        x0, x1 = self.inputs[0].data, self.inputs[1].data
+        x0, x1 = self.inputs
         gx0 = gy / x1
         gx1 = gy * (-x0 / x1 ** 2)
         return gx0, gx1
@@ -248,9 +248,8 @@ class Pow(Function):
         return y
 
     def backward(self, gy):
-        x = self.inputs[0].data
+        x, = self.inputs
         c = self.c
-
         gx = c * x ** (c - 1) * gy
         return gx
 

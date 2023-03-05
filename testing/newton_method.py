@@ -17,10 +17,8 @@ for i in range(iters):
     print(i, x)
 
     y = f(x)
-    print('function y', y)
     x.cleargrad()
     y.backward(create_graph=True)
-    print('function y backward', y.backward)
     
     gx = x.grad
     x.cleargrad()
