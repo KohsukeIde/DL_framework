@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import heapq
 import weakref
 import contextlib
-from IPython import embed
+import dlscratch
 
 # =============================================================================
 # Config
@@ -111,6 +111,18 @@ class Variable:
                 for y in f.outputs:
                     y().grad = None  # y is weakref
 
+        def reshape(self, *shape):
+            if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+                shape = shape[0]
+            return dlscratch.functions.reshape(self, shape)
+
+        def transpose(self, *axes):
+            if len(axes) == 0:
+                axes = None
+            elif len(axes) == 1:
+                if isinstance(axes[0], (tuple, list)) or axes[0] is None:
+                    axes = axes[0]
+            return dlscratch.functions.transpose(self, axes)
 
 def as_variable(obj):
     if isinstance(obj, Variable):
@@ -141,7 +153,7 @@ class Function(ABC):
             self.outputs = [weakref.ref(output) for output in outputs]
             
         return outputs if len(outputs) > 1 else outputs[0]
-    
+
     def __lt__(self, other):
         return self.generation < other.generation
 
