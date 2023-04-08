@@ -19,4 +19,7 @@ else:
     from dlscratch.core import as_variable
     from dlscratch.core import setup_variable
     
+    import dlscratch.functions
+    import dlscratch.utils
+    
 setup_variable()
